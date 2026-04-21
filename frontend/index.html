@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokemon Search</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #cc0000;
+      margin-bottom: 1.5rem;
+      letter-spacing: 1px;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 2rem;
+    }
+
+    input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: #cc0000; }
+
+    button {
+      padding: 0.75rem 1.25rem;
+      background: #cc0000;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #aa0000; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+
+    #error {
+      color: #cc0000;
+      margin-bottom: 1rem;
+      font-weight: 500;
+      display: none;
+    }
+
+    #card {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      display: none;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-header img {
+      width: 96px;
+      height: 96px;
+      image-rendering: pixelated;
+    }
+
+    .card-header .info h2 {
+      font-size: 1.5rem;
+      text-transform: capitalize;
+      color: #222;
+    }
+
+    .card-header .info .id { color: #888; font-size: 0.9rem; }
+
+    .types { display: flex; gap: 0.5rem; margin: 0.5rem 0 1rem; }
+
+    .badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      color: white;
+    }
+
+    .divider { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
+
+    .attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+
+    .attr { text-align: center; }
+    .attr .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .attr .value { font-size: 1.1rem; font-weight: 600; color: #333; }
+
+    .stats h3 { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem; }
+
+    .stat-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .stat-name { width: 100px; font-size: 0.8rem; text-transform: capitalize; color: #555; }
+    .stat-bar-bg { flex: 1; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+    .stat-bar { height: 100%; border-radius: 4px; background: #cc0000; transition: width 0.4s ease; }
+    .stat-val { width: 30px; text-align: right; font-size: 0.8rem; font-weight: 600; color: #333; }
+
+    #loading { color: #888; display: none; }
+  </style>
+</head>
+<body>
+  <h1>Pokemon Search</h1>
+
+  <div class="search-bar">
+    <input id="searchInput" type="text" placeholder="Ex: pikachu, charizard..." />
+    <button id="searchBtn" onclick="search()">Buscar</button>
+  </div>
+
+  <p id="loading">Buscando...</p>
+  <p id="error"></p>
+
+  <div id="card">
+    <div class="card-header">
+      <img id="sprite" src="" alt="sprite" />
+      <div class="info">
+        <h2 id="pokeName"></h2>
+        <div class="id" id="pokeId"></div>
+        <div class="types" id="pokeTypes"></div>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div class="attrs">
+      <div class="attr">
+        <div class="label">Altura</div>
+        <div class="value" id="pokeHeight"></div>
+      </div>
+      <div class="attr">
+        <div class="label">Peso</div>
+        <div class="value" id="pokeWeight"></div>
+      </div>
+      <div class="attr">
+        <div class="label">Exp. Base</div>
+        <div class="value" id="pokeExp"></div>
+      </div>
+    </div>
+    <hr class="divider" />
+    <div class="stats">
+      <h3>Stats</h3>
+      <div id="pokeStats"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:5000/api/pokemon';
+
+    const typeColors = {
+      fire: '#F08030', water: '#6890F0', grass: '#78C850', electric: '#F8D030',
+      psychic: '#F85888', ice: '#98D8D8', dragon: '#7038F8', dark: '#705848',
+      fairy: '#EE99AC', normal: '#A8A878', fighting: '#C03028', flying: '#A890F0',
+      poison: '#A040A0', ground: '#E0C068', rock: '#B8A038', bug: '#A8B820',
+      ghost: '#705898', steel: '#B8B8D0'
+    };
+
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') search();
+    });
+
+    async function search() {
+      const name = document.getElementById('searchInput').value.trim();
+      if (!name) return;
+
+      setLoading(true);
+      setError('');
+      document.getElementById('card').style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_URL}/${encodeURIComponent(name)}`);
+        if (!res.ok) throw new Error(res.status === 404 ? `Pokemon "${name}" não encontrado.` : 'Erro ao buscar pokemon.');
+        const data = await res.json();
+        renderCard(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function renderCard(p) {
+      document.getElementById('pokeName').textContent = p.name;
+      document.getElementById('pokeId').textContent = `#${String(p.id).padStart(3, '0')}`;
+      document.getElementById('sprite').src = p.sprites?.frontDefault || '';
+      document.getElementById('pokeHeight').textContent = `${(p.height / 10).toFixed(1)} m`;
+      document.getElementById('pokeWeight').textContent = `${(p.weight / 10).toFixed(1)} kg`;
+      document.getElementById('pokeExp').textContent = p.baseExperience;
+
+      const typesEl = document.getElementById('pokeTypes');
+      typesEl.innerHTML = p.types.map(t =>
+        `<span class="badge" style="background:${typeColors[t.name] || '#888'}">${t.name}</span>`
+      ).join('');
+
+      const statsEl = document.getElementById('pokeStats');
+      statsEl.innerHTML = p.stats.map(s => `
+        <div class="stat-row">
+          <span class="stat-name">${s.name}</span>
+          <div class="stat-bar-bg">
+            <div class="stat-bar" style="width:${Math.min(s.baseStat / 255 * 100, 100)}%"></div>
+          </div>
+          <span class="stat-val">${s.baseStat}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('card').style.display = 'block';
+    }
+
+    function setLoading(v) {
+      document.getElementById('loading').style.display = v ? 'block' : 'none';
+      document.getElementById('searchBtn').disabled = v;
+    }
+
+    function setError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+  </script>
+</body>
+</html>
